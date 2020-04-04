@@ -486,8 +486,10 @@
                         var imgSrc = $(this).attr(d)
 
                         if (imgSrc.startsWith("/")) {
-                            $(this).attr(d, "https:" + imgSrc);
+                            imgSrc= "https:" + imgSrc
                         }
+                        imgSrc=imgSrc.replace(/^http:\/\//i, 'https://');
+                        $(this).attr(d,imgSrc );
                     })
                 }
                 $wikiContainer.html($data)
