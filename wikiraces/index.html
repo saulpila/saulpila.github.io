@@ -1,0 +1,589 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+        <script src="https://unpkg.com/peerjs@latest/dist/peerjs.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/gh/devbridge/jQuery-Autocomplete@master/src/jquery.autocomplete.js"></script>
+       
+        <link rel="stylesheet" href="https://en.wikipedia.org/w/load.php?modules=mediawiki.legacy.commonPrint%2Cshared%7Cmediawiki.skinning.content.parsoid%7Cmediawiki.skinning.interface%7Cskins.vector.styles%7Csite.styles%7Cext.cite.style%7Cext.cite.styles%7Cmediawiki.page.gallery.styles&only=styles&skin=vector">
+        <style>
+            body {
+                height: 100% !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+            }
+            #myIdText{
+
+            }
+            #wiki_container {
+                overflow-y: scroll;
+                height: calc(100% - 50px);
+                padding: 0 15px;
+                box-sizing: border-box;
+                position: absolute;
+                z-index: 1;
+
+            }
+            #game_controls_container{
+                    padding:20px
+            }
+            #game_container {
+                padding-bottom: 5px;
+                box-shadow: #0000004a 0 0 8px;
+            }
+            
+            #game_container .player{
+                display: inline-block;
+                width: 200px;
+                border:2px solid black;
+                margin: 5px;
+                text-align: center;
+            }
+            #game_container .player.won{
+                   background-color:#00fd00
+                   }
+     
+            #game_container .player .player-name{
+                    
+                    font-weight: bold;
+            }
+          #game_container .player .player-article-title{
+                    font-family: 'Linux Libertine','Georgia','Times',serif;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+            }
+            #article-target{
+                    font-family: 'Linux Libertine','Georgia','Times',serif;
+                    font-size: 24px;
+            }
+
+            
+            body:not(.on-race) .hidden-not-on-game{
+                display:none;
+            }
+            body.on-race .hidden-on-game{
+                display:none;
+            }
+            .autocomplete-suggestions{
+                    background-color:white;
+            }
+            .autocomplete-suggestion{
+                    cursor:pointer;
+                    padding: 0 0 0 10px;
+                    border: #00000024 solid 1px;
+            }
+             .autocomplete-suggestion:hover{
+                    background-color:rgba(0,0,0,0.05);
+                    
+            }
+            .selectorCarrera{
+                    width:300px
+            }
+            #message_overlay{
+                top: 0;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    position: relative;
+                    background-color: rgba(255, 255, 255, 0.70);
+                    text-align: center;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 30px;
+                    z-index: 10000;
+                    margin-bottom: -100vh;
+                    height: 100vh;
+            }
+            .player-cursor{
+                    clip-path: polygon(0% 0%, 100% 69%, 60% 72%, 73% 90%, 46% 100%, 31% 80%, 0 99%);
+                    width: 12px;
+                    height: 19px;
+                    background-color: #000000;
+                    position: absolute;
+                    z-index: 100000000000000;
+            }
+        </style>
+    </head>
+    <body class="mw-content-ltr sitedir-ltr ltr mw-body-content parsoid-body mediawiki mw-parser-output">
+        <script>
+            function random_id(){
+                var str=""
+                for(var i=0;i<5;i++){
+                        str=str+Math.floor(Math.random() * 10)
+                }
+                return str
+            }
+            _idprefix="wikiwarsgamee_"
+
+            myid=random_id()
+
+            me = new Peer(_idprefix+myid,{debug:2});
+            meInfo={peer:myid}
+            meInfo.name = prompt("Ingresa tu nombre: ");
+                
+       //     my_name="Saúl"
+            peers = new Set([])
+            connecting_to = new Set([])
+            article_chain=[]
+            articleTo=null
+            loadingRace=false
+            function on_command(comm, data, conn) {
+                switch (comm) {
+                case "my_other_players":
+                    window.console.log(data.other_players)    
+                    my_other_players=[meInfo,...peers].map((p)=>p.peer)
+                    for(let other of data.other_players){
+                         if(!my_other_players.includes(other)){
+                                connect_to(other)
+                        }
+
+                    }
+                    conn.other_peers=new Set([data.other_players])
+                    break;
+                case "my_name_is":
+                    conn.name = data.name
+                    window.setTimeout(updatePlayers,100)
+                    break;
+                case "start_race":
+                    start_race(data["from"],data["to"])
+
+                    break;
+                case "went_to":
+                    setArticle(conn,data)
+
+                    updatePlayers()
+                    if(loadingRace){
+                        start_race_if_loaded()
+                    }
+                    break;
+                case "stop_race":
+                    stoprace(false)
+                    break;
+                  
+                
+                case "set_race_tofrom":
+                  var $el=$("#"+data.el);
+                  $el.data("valid-suggestion",data.article);
+                  $el.val(data.article);
+                  break;
+                case "cursor_position":
+                   window.console.log(conn.peer,data)
+                   var $el=$("#cursor_"+conn.peer);
+           
+                   $el.css({top:data.y,left:data.x})
+                   break
+                  }
+            }
+            function onGame(){
+                    return $("body").hasClass("on-race")
+            }
+            function same_article_players(){
+                    if(! onGame()){return peers}
+                    return [...peers].filter(p => (p.current_article==meInfo.current_article));
+            }
+            $("body").on("mousemove",function(event){
+                same_article_players()
+                send_command("cursor_position",{x:event.pageX,y:event.pageY,t:(new Date().getTime())},same_article_players())
+
+            })
+            function stoprace(tell_everyone){
+                    if(tell_everyone){
+                        broadcast_command("stop_race")
+                    }
+                    $("body").removeClass("on-race")
+                    hideOverlay()
+
+
+            }
+            function updatePlayers(){
+                var $cont=$("#players")
+                $cont.html("")
+                var players=[meInfo,...peers]
+                players.sort(function (a,b){
+                      if(articleTo!=null){
+                         if(a.current_article==articleTo && b.current_article==articleTo){
+                                 return a.article_time-b.article_time
+                         }
+                         if(a.current_article==articleTo && b.current_article!=articleTo){
+                                 return -1
+                         }
+                         if(b.current_article==articleTo && a.current_article!=articleTo){
+                                 return 1
+                         }
+                      } 
+                      return 0
+                })
+                var wonindex=1
+                for(let p of players){
+                        var art=p.current_article
+                        
+                        var artt;
+                        if(art){artt=art.split("_").join(" ");}
+                        else{artt=""}
+                        var $pl=$("<div class='player'><div class='player-name'>" + p.name + "</div><div class='player-article-title'>"+artt +"</div></div>")
+                        if(articleTo!=null && art==articleTo){
+                                $pl.addClass("won");
+                                $pl.find(".player-article-title").text(""+wonindex);
+                                wonindex++;}
+                        if(p==meInfo){
+                                $pl.addClass("me")
+                        }
+                        $cont.append($pl)
+                        var $cursor=$("#cursor_"+p.peer)
+                        if(p!=meInfo && (! onGame() || art==meInfo.current_article)){
+                           if($cursor.length==0){
+                              $cursor=$("<div/>").addClass("player-cursor").attr("id","cursor_"+p.peer).appendTo($("body"))
+                           }
+                        }
+                        else{
+                           $cursor.remove()
+                        }
+                }
+             }
+
+             function broadcast_command(comm,data){
+                send_command(comm,data,peers)
+
+             }
+            function send_command(comm, data, conn) {
+                if(Symbol.iterator in Object(conn)){
+                    for(var c of conn){
+                        send_command(comm,data,c)
+                    }
+                }else{
+                  conn.send({
+                     "d": data,
+                     "c": comm
+                 })
+                }
+            }
+            function connect_to(id) {
+                if(id==me.id){return}
+                if(me.disconnected){
+                        me.pending_to_connect.add(id)
+                        console.log("pending",id)
+                        return
+                }
+                if(connecting_to.has(id)){return}
+                        
+                if([...peers].filter((c)=> c.peer==id).length){return}
+                var conn=me.connect(id, {
+                    reliable: true,
+                    serialization: "json"
+                })
+                connecting_to.add(id)
+                window.connetingtoconn=conn
+                onconnection(conn);
+                conn.on("error",function(e){
+                        connecting_to.delete(id)
+                        console.log(e)})
+            }
+            function send_other_players(c){
+                    send_command("my_other_players", {other_players:[...peers].map((p)=>p.peer)}, c)
+            }
+            function send_other_players_to_all(){
+                    for(var c of peers){send_other_players(c)}
+            }
+            window.setInterval(send_other_players_to_all,2000)
+            function onconnection(c) {
+                c.on('open', function() {
+                    var id=c.peer
+                    var other_connections_to_same_peer=[...peers].filter((c)=> c.peer==id)
+                    if(other_connections_to_same_peer.length){
+                        if(me.peer > c.peer){
+                           c.close()
+                           return
+                        }
+                        else{
+                          for(var p of other_connections_to_same_peer){p.close()}
+                        }
+                    }
+                    peers.add(c)
+                    connecting_to.delete(c.peer)
+                    send_command("my_name_is", {name:meInfo.name}, c)
+                    send_other_players(c)
+                })
+                c.on('close', function() {
+                    peers.delete(c);
+                    var id=c.peer
+                    window.setTimeout(()=>{
+                        var consensus_left=false
+                        if(!([...peers].filter((c)=> c.peer==id).length)){
+                                if(peers.size==0 || [...peers].filter((c)=> (!c.other_players)||c.other_players.has(id)).length){
+                                        connect_to(id)
+                                        window.console.log("reconnecting",id)
+                                }
+                        }
+                    },4000)
+                    send_other_players_to_all()
+                    updatePlayers()
+                })
+                c.on('data', function(data) {
+                    on_command(data.c, data.d, c)
+                });
+            }
+
+            me.connection_wait=10
+            me.pending_to_connect=new Set([])
+            function check_connection_open(){
+                if(me.disconnected){
+                        window.setTimeout(check_connection_open,50)
+                        return
+                }
+                me.connection_wait=10
+                for(var c of me.pending_to_connect){connect_to(c)}
+                me.pending_to_connect.clear()
+            }
+
+            me.on('open', function(id) {
+               check_connection_open()
+            });
+            me.on('connection', onconnection)
+          
+            me.on('disconnected', function() {
+                console.log('Connection lost. Please reconnect');
+                me.pending_to_connect=new Set([...me.pending_to_connect,...connecting_to])
+                connecting_to.clear()
+                window.setTimeout(()=>{me.reconnect();check_connection_open()},me.connection_wait)
+
+            });
+            me.on('close', function() {
+                console.log('Connection destroyed');
+            });
+            me.on('error', function(err) {
+                console.log(err);
+                me.connection_wait*=2
+            });
+            function article_from_link(link) {
+                return decodeURI(link.split('/').pop().split('#')[0].split('?')[0]);
+            }
+            async function main() {
+                $("#pasteIdText").on('keydown', function (e) {
+                    if (e.keyCode === 13) {
+                        connect_to(_idprefix+$(this).val())
+                        $(this).val("")
+                        return false;
+                    }
+                });
+                $(".selectorCarrera").autocomplete({minChars:3,serviceUrl:"https://en.wikipedia.org/w/api.php",
+                params:{action:"opensearch",origin:"*",format:"json",redirects:"resolve"},autoSelectFirst:true,paramName:"search",dataType:"json",
+                transformResult:function(data,originalQuery){
+                        var res=[]
+                        for(let d of data[1]){
+
+                                res.push({"value":d,"data":d})
+                        }
+                        return {suggestions:res}
+                },onInvalidateSelection:function(){$(this).val("")},
+                onSelect:function(suggestion){
+                        window.console.log(suggestion)
+                        $(this).data("valid-suggestion",suggestion.value)
+                        
+                        broadcast_command("set_race_tofrom",{el:$(this).attr('id'),article:suggestion.value})
+
+                }}).on("blur",function(){
+                        var valid=$(this).data("valid-suggestion")
+                        if(valid!=$(this).val()){$(this).val("")}
+                });
+                $("#myIdText").val(myid)
+                updatePlayers()
+            }
+            function spaces_to_underscores(x){return x.split(" ").join("_")}
+            async function iniciar_carrera(){
+               showOverlay("Cargando")
+               var from= spaces_to_underscores($("#carreraFrom").val())
+               var to= spaces_to_underscores($("#carreraTo").val())
+
+               to=(await load_article(to))[0]
+               from=(await load_article(from))[0]
+               if(to==null || from ==null){
+                       reds=$()
+                       if(to==null){
+                         reds=reds.add("#carreraTo")
+                       }
+                       if(from==null){
+                         reds=reds.add("#carreraFrom") 
+                       }
+                       reds.css({backgroundColor:"red"})
+                       window.setTimeout(function(){reds.css({backgroundColor:"white"})},1000)
+                       hideOverlay()
+                       return false
+               }
+               start_race(from,to)
+               broadcast_command("start_race",{from:from,to:to})
+               return true
+            }
+
+            virtualDOM = document.implementation.createHTMLDocument('virtual');
+            async function start_race(from,to){
+                window.loadingRace=true
+                showOverlay("Cargando")
+                $("body").addClass("on-race")
+                window.article_chain=[]
+                window.articleTo=to
+                $("#article-target").text(to.split("_").join(" "))
+                await goto_article(from)
+                start_race_if_loaded()
+            }
+            function start_race_if_loaded(){
+                if(window.article_chain.length){
+                   for(let p of peers){
+                        if(p.current_article!=window.article_chain[0]){
+                                return false
+                        }
+                   }
+                   showOverlay("3")
+                   window.setTimeout(()=> showOverlay("2"),1000)
+                   window.setTimeout(()=> showOverlay("1"),2000)
+                   window.setTimeout(()=> hideOverlay(),3000)
+                   window.loadingRace=false
+                }
+            }
+            async function load_article(title){
+                var data;
+                try {
+                    var data = await $.ajax({url:"https://en.wikipedia.org/api/rest_v1/page/html/"+title,data:{"redirect":"false"}});
+                } catch(e){
+                    return [null,null]
+                                                       
+                }
+                var $data = $("<div>" + data + "</div>", virtualDOM);
+
+                var redirects =$data.find("link[rel='mw:PageProp/redirect']")
+                if(redirects.length){
+                    return await load_article(article_from_link(redirects.attr("href")));
+                }
+                return [article_from_link($data.find("link[rel='dc:isVersionOf']").attr("href")),$data]
+
+            }
+            async function goto_article(article_title) {
+                var $wikiContainer = $("#wiki_container")
+                $wikiContainer.html("Loading...")
+                var ld=await load_article(article_title)
+                article_title=ld[0]
+                var $data=ld[1]
+                if(article_title==null){
+                        if(window.article_chain.length){
+                                return await goto_article(window.article_chain.pop())
+                        }
+                        else{
+                                throw new Error("UPS");
+                        }
+                }
+
+                $data.find('script, meta, link').remove()
+                var $title = $data.find('title')
+                var title = $title.text()
+                $title.replaceWith("<h1>" + title + "</h1>")
+                var toreplace = {
+                    "img": "src",
+                    "base": "href"
+                }
+                for (e in toreplace) {
+                    var d = toreplace[e]
+
+                    $data.find(e + '[' + d + ']').addBack(e + '[' + d + ']').each(function() {
+                        var imgSrc = $(this).attr(d)
+
+                        if (imgSrc.startsWith("/")) {
+                            $(this).attr(d, "http:" + imgSrc);
+                        }
+                    })
+                }
+                $wikiContainer.html($data)
+                $wikiContainer.find("a").on("click", function() {
+                    var a = $(this)
+                    var link = a.attr("href")
+                    if (!link.startsWith("./")) {
+                        return false
+                    }
+                    if (link.startsWith("./File:")) {
+                        return false
+                    }
+                    var link_article_title = article_from_link(link)
+                    //if(article_title!=link_article_title){
+                    goto_article(link_article_title)
+                    // }
+                    return false
+
+                })
+                window.article_chain.push(article_title)
+                broadcast_command("went_to",article_title)
+                setArticle(meInfo,article_title)
+
+                if(articleTo!=null && article_title==articleTo){
+                        showOverlay("¡Ganaste!")
+                }
+            }
+            function setArticle(player,article_title){
+                    player.current_article=article_title
+                    var d = new Date();
+                    player.article_time=d.getTime();
+                    updatePlayers()
+            }
+            function showOverlay(text){
+                $("#message_overlay").css({display:"flex"}).html(text)
+                }
+            function hideOverlay(){
+                $("#message_overlay").css({display:"none"})
+            }
+            $(document).ready(main)
+            $(document).on("unload",function(){
+                    me.destroy()
+            })
+        </script>
+        <div id="game_container" >
+                <div id="players"></div>
+                <div style="text-align: center;" class="hidden-not-on-game">
+                  Vas a <span id="article-target"></span>
+                 </div>
+                 <button  class="hidden-not-on-game" onclick="stoprace(true)" style=" position: absolute;right: 10px;top: 10px;">Terminar Carrera</button>
+        </div>
+        <div id="game_controls_container" class="hidden-on-game">
+       
+
+                <table>
+                  <tr>
+                  <th colspan=2>Añadir Jugadores</th> 
+                  </tr>
+                  <tr>
+                             <td>Mi id </td> 
+                             <td><input type="text" disabled id="myIdText"> </td>
+                   </tr>
+                  <tr>
+                         <td>Unirse a</td>
+                         <td> <input type="text" id="pasteIdText" placeholder="pega id"></td>
+                </tr>
+   
+                  <tr>
+                  <th>&nbsp;</th> 
+                    </tr>
+   
+                  <tr>
+                  <th colspan=2>Iniciar Carrera</th> 
+                  </tr>
+                   <form onsubmit="iniciar_carrera();return false">
+                  <tr>
+                             <td>De</td> 
+                             <td><input type="text" class="selectorCarrera" id="carreraFrom" required></td>
+                             <td rowspan=2><button  type="submit" id="iniciarCarreraBut">INICIAAAR!!!</button></td>
+                   </tr>
+                  <tr>
+                         <td>a</td>
+                         <td><input type="text"  class="selectorCarrera" id="carreraTo" required></td>
+                </tr>
+                 </form>
+                </table>
+                </div>
+
+        </div>
+        
+
+        <div id="message_overlay" style="display:none"></div>
+        <div id="wiki_container" class="hidden-not-on-game"></div>
+        
+    </body>
+</html>
