@@ -120,7 +120,7 @@
 
             myid=random_id()
 
-            me = new Peer(_idprefix+myid,{debug:2});
+            me = new Peer(_idprefix+myid,{debug:0});
             meInfo={peer:myid}
             meInfo.name = prompt("Ingresa tu nombre: ");
                 
@@ -133,7 +133,7 @@
             function on_command(comm, data, conn) {
                 switch (comm) {
                 case "my_other_players":
-                    window.console.log(data.other_players)    
+
                     my_other_players=[meInfo,...peers].map((p)=>p.peer)
                     for(let other of data.other_players){
                          if(!my_other_players.includes(other)){
@@ -170,7 +170,6 @@
                   $el.val(data.article);
                   break;
                 case "cursor_position":
-                   window.console.log(conn.peer,data)
                    var $el=$("#cursor_"+conn.peer);
            
                    $el.css({top:data.y,left:data.x})
@@ -185,8 +184,7 @@
                     return [...peers].filter(p => (p.current_article==meInfo.current_article));
             }
             $("body").on("mousemove",function(event){
-                same_article_players()
-                send_command("cursor_position",{x:event.pageX,y:event.pageY,t:(new Date().getTime())},same_article_players())
+               // send_command("cursor_position",{x:event.pageX,y:event.pageY,t:(new Date().getTime())},same_article_players())
 
             })
             function stoprace(tell_everyone){
@@ -232,6 +230,8 @@
                                 $pl.addClass("me")
                         }
                         $cont.append($pl)
+
+                        continue;
                         var $cursor=$("#cursor_"+p.peer)
                         if(p!=meInfo && (! onGame() || art==meInfo.current_article)){
                            if($cursor.length==0){
@@ -264,7 +264,6 @@
                 if(id==me.id){return}
                 if(me.disconnected){
                         me.pending_to_connect.add(id)
-                        console.log("pending",id)
                         return
                 }
                 if(connecting_to.has(id)){return}
@@ -278,8 +277,7 @@
                 window.connetingtoconn=conn
                 onconnection(conn);
                 conn.on("error",function(e){
-                        connecting_to.delete(id)
-                        console.log(e)})
+                        connecting_to.delete(id)})
             }
             function send_other_players(c){
                     send_command("my_other_players", {other_players:[...peers].map((p)=>p.peer)}, c)
@@ -314,7 +312,6 @@
                         if(!([...peers].filter((c)=> c.peer==id).length)){
                                 if(peers.size==0 || [...peers].filter((c)=> (!c.other_players)||c.other_players.has(id)).length){
                                         connect_to(id)
-                                        window.console.log("reconnecting",id)
                                 }
                         }
                     },4000)
@@ -344,17 +341,17 @@
             me.on('connection', onconnection)
           
             me.on('disconnected', function() {
-                console.log('Connection lost. Please reconnect');
+
                 me.pending_to_connect=new Set([...me.pending_to_connect,...connecting_to])
                 connecting_to.clear()
                 window.setTimeout(()=>{me.reconnect();check_connection_open()},me.connection_wait)
 
             });
             me.on('close', function() {
-                console.log('Connection destroyed');
+
             });
             me.on('error', function(err) {
-                console.log(err);
+
                 me.connection_wait*=2
             });
             function article_from_link(link) {
@@ -379,7 +376,7 @@
                         return {suggestions:res}
                 },onInvalidateSelection:function(){$(this).val("")},
                 onSelect:function(suggestion){
-                        window.console.log(suggestion)
+
                         $(this).data("valid-suggestion",suggestion.value)
                         
                         broadcast_command("set_race_tofrom",{el:$(this).attr('id'),article:suggestion.value})
