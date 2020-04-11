@@ -1,6 +1,7 @@
 <html>
     <head>
         <meta charset="UTF-8">
+
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
         <script src="https://unpkg.com/peerjs@latest/dist/peerjs.min.js"></script>
         <script src="jquery-autocomplete.js"></script>
@@ -87,6 +88,10 @@
                     background-color:rgba(0,0,0,0.05);
                     
             }
+            .find_spoofer{
+                font-size: 0;
+
+            }
             .selectorCarrera{
                     width:300px
             }
@@ -113,6 +118,18 @@
                     background-color: #000000;
                     position: absolute;
                     z-index: 100000000000000;
+            }
+            .random-dice{
+                        transition: transform ease 300ms;
+                        height: 4em;
+                        cursor: pointer;
+            }
+            .random-dice:hover{
+            transform: scale(1.1) rotate(45deg);
+            }
+             .random-dice:active{
+            transform: scale(1.1) rotate(405deg);
+            transition: transform ease 0ms;
             }
         </style>
     </head>
@@ -412,6 +429,12 @@
                         return false;
                     }
                 });
+                function set_article_textinput(el,v){
+                       el.val(v)
+                       el.data("valid-suggestion",v)
+                       broadcast_command("set_race_tofrom",{el:el.attr('id'),article:v})
+
+                }
                 $(".selectorCarrera").autocomplete({minChars:3,serviceUrl:"https://en.wikipedia.org/w/api.php",
                 params:{action:"opensearch",origin:"*",format:"json",redirects:"resolve"},autoSelectFirst:true,paramName:"search",dataType:"json",
                 transformResult:function(data,originalQuery){
@@ -424,15 +447,18 @@
                 },onInvalidateSelection:function(){$(this).val("")},
                 onSelect:function(suggestion){
 
-                        $(this).data("valid-suggestion",suggestion.value)
+                        set_article_textinput($(this),suggestion.value)
                         
-                        broadcast_command("set_race_tofrom",{el:$(this).attr('id'),article:suggestion.value})
 
                 }}).on("blur",function(){
                         var valid=$(this).data("valid-suggestion")
                         if(valid!=$(this).val()){$(this).val("")}
                 });
                 $("#myIdText").val(myid)
+                $(".random-dice").on("click",function(){
+                      var text=$(this).closest("tr").find(".selectorCarrera");
+                     (async function(){set_article_textinput(text,await getRandomArticle())})();
+                })
                 updatePlayers()
             }
             function spaces_to_underscores(x){return x.split(" ").join("_")}
@@ -553,9 +579,11 @@
                     //if(article_title!=link_article_title){
                     goto_article(link_article_title)
                     // }
+
                     return false
 
                 })
+               
                 window.article_chain.push(article_title)
                 broadcast_command("went_to",article_title)
                 setArticle(meInfo,article_title)
@@ -563,6 +591,18 @@
                 if(articleTo!=null && article_title==articleTo){
                         showOverlay("¡Ganaste!")
                 }
+                else{
+                            window.setTimeout(spoof_find_links,1)
+                }
+            }
+            function spoof_find_links(){
+               lnks=$("#wiki_container").find("a:not(.spoofed)").slice(0,50)
+               if(lnks.length>0){
+                   lnks.disableFind().addClass("spoofed")
+                    window.setTimeout(spoof_find_links,1)
+               }
+               else{
+               }
             }
             function setArticle(player,article_title){
                     player.current_article=article_title
@@ -580,7 +620,87 @@
             window.onbeforeunload = function() { 
                     broadcast_command("bye")
                     me.destroy()
+            };
+
+            sorted_articles_by_backlink=null
+            random_aritcles_cache=[]
+            cache_length=20
+
+            async function getRandomArticle(){
+             if(random_aritcles_cache.length){
+                        return random_aritcles_cache.pop()
+             }
+             if(window.sorted_articles_by_backlink==null){
+                    window.sorted_articles_by_backlink= await $.getJSON("sorted_articles_by_backlinks.json")
+             }
+             var arts=[]
+             for(i = 0; i <cache_length; i++){
+                         arts.push(sorted_articles_by_backlink[randint(100,sorted_articles_by_backlink.length-1)][0])
+             }
+             var dta=await $.getJSON("https://en.wikipedia.org/w/api.php",{action:"query",format:"json",redirects:"resolve",origin:"*",prop:"info",pageids:arts.join("|"),inprop:"url"})
+             var pages= Object.values(dta.query.pages)
+             for(var page of pages){
+                         if(page.title){
+                                    random_aritcles_cache.push(page.title)
+                         }
+             }
+             return await getRandomArticle()
             }
+           
+            function randint(min, max) {  
+              return Math.floor(
+                Math.random() * (max - min) + min
+              )
+            }
+            (function(){
+                var addchars="QWERTYUIOPASDFGHJKLZXCVBNM.,1234567890"
+                var chrslength=addchars.length
+                jQuery.fn.disableFind =function(){
+                    return this.each(function (){
+                                var newHTML = "";                                 // create a new blank string
+                                var stopch = "";    
+
+                                var currentElement = $(this);                     // variable to hold the current element
+                                var html = currentElement.html();  
+                                var l=html.length               // get html from current element
+                                for (var i = 0; i < l; i++)         // iterate through each character of the html
+                                {
+                                    newHTML += html[i];  
+                                    if($.trim(html[i])){
+                                                if (!stopch && (html[i] == '<' || html[i] == '&')) { stopch = html[i] };      // stop when entering a tag
+
+                                                if (!stopch) {                      // inject dot into newHTML
+                                                    newHTML += '<span class="find_spoofer">'+ addchars[Math.floor(Math.random() * chrslength)] +'</span>';
+                                                }
+
+                                                if ((html[i] == '>' && stopch == '<') || (html[i] == ';' && stopch=='&')) { stopch = '' };     // continue when exiting a tag
+
+                                    }
+
+                                }
+
+                                currentElement.html(newHTML);// replace current element with newHTML
+                    })
+                    
+                }})();
+                $(document).ready(function() {
+                            var ctrlDown = false,
+                                ctrlKey = 17,
+                                cmdKey = 91,
+                                fKey = 70;
+
+                            $(document).keydown(function(e) {
+                                if (e.keyCode == ctrlKey || e.keyCode == cmdKey) ctrlDown = true;
+                            }).keyup(function(e) {
+                                if (e.keyCode == ctrlKey || e.keyCode == cmdKey) ctrlDown = false;
+                            });
+
+                            $(document).keydown(function(e) {
+                                if (ctrlDown && (e.keyCode == fKey)) return false;
+                            });
+
+
+                        });
         </script>
         <div id="game_container" >
                 <div id="players"></div>
@@ -616,11 +736,13 @@
                   <tr>
                              <td>De</td> 
                              <td><input type="text" class="selectorCarrera" id="carreraFrom" required></td>
+                             <td><img src="dice.svg" class="random-dice"></td>
                              <td rowspan=2><button  type="submit" id="iniciarCarreraBut">INICIAAAR!!!</button></td>
                    </tr>
                   <tr>
                          <td>a</td>
                          <td><input type="text"  class="selectorCarrera" id="carreraTo" required></td>
+                         <td><img src="dice.svg" class="random-dice"></td>
                 </tr>
                  </form>
                 </table>
