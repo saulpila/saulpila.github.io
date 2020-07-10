@@ -146,7 +146,7 @@
 
             myid=random_id()
 
-            me = new Peer(_idprefix+myid,{debug:0});
+            me = new Peer(_idprefix+myid,{debug:0,port:443,secure:true,host:"9000-a872b543-ffa0-4815-b0c5-537148563afc.ws-us02.gitpod.io"});
             meInfo={peer:myid}
             meInfo.name = prompt("Ingresa tu nombre: ");
                 
