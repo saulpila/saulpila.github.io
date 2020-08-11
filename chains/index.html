@@ -1,0 +1,137 @@
+<html>
+    <head>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    </head>
+    <body style="margin:0">
+        <div id="loading_div">Loading...
+</div>
+        <div id="pr_plot" style="height:40vh"></div>
+        <div id="instruction_div">Click on any of the states above to see the distribution on the site basis
+</div>
+        <div id="state_plot" style="width:60vh;height:60vh;margin:auto"></div>
+        <script>
+
+            async function init() {
+                $('#instruction_div').hide()
+                prsandenergies = await $.getJSON("prs_and_energies.json");
+                window.prs = prsandenergies[0]
+                window.energies = prsandenergies[1]
+                var prm = $.ajax({
+                    url: "eigenstates.json",
+                    dataType: "json"
+                }, {
+                    beforeSend: function(xhr) {
+                        xhr.addEventListener("progress", function(evt) {
+                            if (evt.lengthComputable) {
+                                var percentComplete = evt.loaded / evt.total;
+                                console.log(percentComplete);
+                            }
+                        }, false);
+                    }
+                })
+
+                window.eigenstates = await prm;
+                var D = energies.length
+                var L = (Math.sqrt(1 + 8 * D) - 1) / 2
+                var myPlot = document.getElementById('pr_plot')
+                  , d3 = Plotly.d3
+                  , N = 16
+                  , x = energies
+                  , y = prs
+                  , data = [{
+                    x: x,
+                    y: y,
+                    type: 'scatter',
+                    mode: 'markers',
+                    marker: {
+                        size: 3
+                    }
+                }]
+                  , layout = {
+                    hovermode: 'closest',
+                    yaxis: {
+                        title: 'Participation Ratio'
+                    },
+                    xaxis: {
+                        title: "Energy"
+                    },
+                    margin: {
+                        l: 50,
+                        r: 50,
+                        b: 50,
+                        t: 30,
+                        pad: 0
+                    },
+                    title: false
+                };
+
+                stateplot = Plotly.newPlot('pr_plot', data, layout, {
+                    responsive: true
+                });
+                var dta = Array(L).fill(NaN).map(x=>Array(L).fill(NaN))
+                var data = [{
+                    z: dta,
+                    type: 'heatmap',
+                    colorscale: [[0, 'rgb(0,0,0)'], [0.5, 'rgb(255,0,0)'], [1, 'rgb(255,200,0)']],
+                    showscale: false,
+                }];
+
+                var axisTemplate = {
+                    showgrid: false,
+                    zeroline: false,
+                    linecolor: 'black',
+                    showticklabels: false,
+                    ticks: ''
+                };
+                Plotly.newPlot('state_plot', data, {
+                    margin: {
+                        l: 0,
+                        r: 0,
+                        b: 10,
+                        t: 0,
+                        pad: 0
+                    },
+                    title: false,
+                    xaxis: axisTemplate,
+                    yaxis: axisTemplate,
+                    showlegend: false,
+                }, {
+                    staticPlot: true,
+                    responsive: true
+                });
+
+                myPlot.on('plotly_click', function(data) {
+                    var k = data.points[0].pointIndex
+                    var state = eigenstates[k]
+                    var ind = 0
+
+                    for (var i = 0; i < L; i++) {
+                        for (var j = 0; j < L; j++) {
+                            if (i <= j) {
+                                dta[i][L - j] = state[ind]
+                                ind++
+                            } else {
+                                dta[i][j] = NaN
+                            }
+
+                        }
+                    }
+                    Plotly.redraw('state_plot');
+                    $('#instruction_div').remove()
+
+                });
+                $('#instruction_div').show()
+
+                $('#loading_div').remove()
+            }
+            function PR(k) {
+                return window.prs[k - 1]
+            }
+            function energy(k) {
+                return window.energies[k - 1]
+            }
+            init()
+        </script>
+    </body>
+</html>
