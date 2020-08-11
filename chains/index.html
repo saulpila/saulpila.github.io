@@ -25,12 +25,16 @@
                         xhr.addEventListener("progress", function (evt) {
                             var tot=85372081;
                             var p=evt.loaded/tot
-                            $('#loading_div').html("Loading... ("+Math.round(p*100)+"%)")
+                            if(p<1){
+                                $('#loading_div').html("Loading data... ("+Math.round(p*100)+"%)")
+                            }else{
+                                $('#loading_div').html("Parsing data...")
+
+                            }
                         }, false);
                         return xhr;
                 }});
                 window.eigenstates = await $.getJSON("eigenstates.json");
-                $('#loading_div').html("Parsing...")
                 var D = energies.length
                 var L = (Math.sqrt(1 + 8 * D) - 1) / 2
                 var myPlot = document.getElementById('pr_plot')
