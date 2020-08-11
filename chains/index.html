@@ -104,7 +104,15 @@
                     var k = data.points[0].pointIndex
                     var state = eigenstates[k]
                     var ind = 0
+                annotate_text = 'k='+k+1;
 
+                        annotation = {
+                          text: annotate_text,
+                          x: data.points[0].x,
+                          y: parseFloat(data.points[0].y.toPrecision(4))
+                        }
+
+                        Plotly.relayout('pr_plot',{annotations: [annotation]})
                     for (var i = 0; i < L; i++) {
                         for (var j = 0; j < L; j++) {
                             if (i <= j) {
