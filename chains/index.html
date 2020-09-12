@@ -6,7 +6,7 @@
     </head>
     <body style="margin:0;overflow:hidden">
         <div id="loading_div" style="position:fixed;top:10px;left:10px;font-size:24pt;font-family:arial">Loading... </div>
-         <div id="jz_select" style="position:fixed;z-index:1000">
+         <div id="jz_select" style="position:fixed;z-index:1000;display:none">
          Jz=
           <input type="radio" name="Jz" value="0">
           <label for="Jz">0</label>
@@ -20,9 +20,9 @@
           <label for="Jz">10</label>
         </div>
         <div id="pr_plot" style="height:40vh"></div>
-        <div id="instruction_div">Click on any of the states above to see the distribution on the site basis
+        <div id="instruction_div">Click on any of the states above to see the distribution on the positive parity symmetrization of the site basis
 </div>
-        <div id="state_plot" style="width:60vh;height:60vh;margin:auto"></div>
+        <div id="state_plot" style="width:100%;max-width:120vh;height:60vh;margin:auto"></div>
         <script>
             Jzs=[0,0.1,0.48,3,10]
             async function loadens(Jz){
@@ -62,7 +62,7 @@
                 window.eigenstates =await Promise.all(Jzs.map(loadstates))
                // window.eigenstates = await $.getJSON("eigenstates.json");
                L=100
-                window.dta = Array(L).fill(NaN).map(x=>Array(L).fill(NaN))
+                window.dta = Array(L/2).fill(NaN).map(x=>Array(L).fill(NaN))
                 var data = [{
                     z: dta,
                     type: 'heatmap',
@@ -122,7 +122,7 @@
                         title: 'Participation Ratio'
                     },
                     xaxis: {
-                        title: "Energy"
+                        title: ""
                     },
                     margin: {
                         l: 50,
@@ -152,7 +152,7 @@
                         }
 
                         Plotly.relayout('pr_plot',{annotations: [annotation]})
-                    for (var i = 0; i < L; i++) {
+                    for (var i = 0; i < L/2; i++) {
                         for (var j = 0; j < L; j++) {
                             if (i <= j && i< L-j) {
                                 window.dta[i][L - j - 1] = state[ind]
@@ -167,8 +167,7 @@
                     $('#instruction_div').remove()
 
                 });
-                $('#instruction_div').show()
-
+                $('#instruction_div, #jz_select').show()
                 $('#loading_div').remove()
             }
 
