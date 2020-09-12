@@ -1,30 +1,45 @@
 <html>
     <head>
+    
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     </head>
     <body style="margin:0;overflow:hidden">
         <div id="loading_div" style="position:fixed;top:10px;left:10px;font-size:24pt;font-family:arial">Loading... </div>
+         <div id="jz_select" style="position:fixed;z-index:1000">
+         Jz=
+          <input type="radio" name="Jz" value="0">
+          <label for="Jz">0</label>
+          <input type="radio" name="Jz" value="1">
+          <label for="Jz">0.1</label>
+          <input type="radio" name="Jz" value="2" checked>
+          <label for="Jz">0.48</label>
+          <input type="radio" name="Jz" value="3">
+          <label for="Jz">3</label>
+          <input type="radio" name="Jz" value="4">
+          <label for="Jz">10</label>
+        </div>
         <div id="pr_plot" style="height:40vh"></div>
         <div id="instruction_div">Click on any of the states above to see the distribution on the site basis
 </div>
         <div id="state_plot" style="width:60vh;height:60vh;margin:auto"></div>
         <script>
-
-            async function init() {
-                $('#instruction_div').hide()
-                prsandenergies = await $.getJSON("prs_and_energies.json");
-                window.prs = prsandenergies[0]
-                window.energies = prsandenergies[1]
-                var req = $.ajax({
+            Jzs=[0,0.1,0.48,3,10]
+            async function loadens(Jz){
+                return await $.getJSON("PRandEnergyPlusParityJz="+Jz+".json");
+            }
+            loaded=[0,0,0,0,0]
+            async function loadstates(Jz,i){
+                return await $.ajax({
                     dataType: 'json',
-                    url: "eigenstates.json",
+                    url: "eigenstatesPlusParityJz="+Jz+".json",
                     xhr: function () {
                         var xhr = new window.XMLHttpRequest();
                         //Download progress
                         xhr.addEventListener("progress", function (evt) {
-                            var tot=85372081;
-                            var p=evt.loaded/tot
+                            var tot=116211119;
+                            window.loaded[i]=evt.loaded
+                            var p=window.loaded.reduce((a, b) => a + b, 0)/tot
                             if(p<1){
                                 $('#loading_div').html("Loading data... ("+Math.round(p*100)+"%)")
                             }else{
@@ -34,9 +49,59 @@
                         }, false);
                         return xhr;
                 }});
-                window.eigenstates = await $.getJSON("eigenstates.json");
+            }
+            async function init() {
+                $('#instruction_div').hide()
+                $('input:radio[name="Jz"]').change(
+                function(){
+                if ($(this).is(':checked'))
+                                plotmain($(this).val())
+                 })
+                window.prsandenergies =await Promise.all(Jzs.map(loadens))
+
+                window.eigenstates =await Promise.all(Jzs.map(loadstates))
+               // window.eigenstates = await $.getJSON("eigenstates.json");
+               L=100
+                window.dta = Array(L).fill(NaN).map(x=>Array(L).fill(NaN))
+                var data = [{
+                    z: dta,
+                    type: 'heatmap',
+                    colorscale: [[0, 'rgb(0,0,0)'], [0.5, 'rgb(255,0,0)'], [1, 'rgb(255,200,0)']],
+                    showscale: false,
+                }];
+
+                var axisTemplate = {
+                    showgrid: false,
+                    zeroline: false,
+                    linecolor: 'black',
+                    showticklabels: false,
+                    ticks: ''
+                };
+                Plotly.newPlot('state_plot', data, {
+                    margin: {
+                        l: 0,
+                        r: 0,
+                        b: 10,
+                        t: 0,
+                        pad: 0
+                    },
+                    title: false,
+                    xaxis: axisTemplate,
+                    yaxis: axisTemplate,
+                    showlegend: false,
+                }, {
+                    staticPlot: true,
+                    responsive: true
+                });
+                plotmain(2)
+            }
+            function plotmain(i){
+                var energies=window.prsandenergies[i][1]
+                var prs=window.prsandenergies[i][0]
+                var eigenstates=window.eigenstates[i]
                 var D = energies.length
-                var L = (Math.sqrt(1 + 8 * D) - 1) / 2
+                //var L = (Math.sqrt(1 + 8 * D) - 1) / 2
+                L=100
                 var myPlot = document.getElementById('pr_plot')
                   , d3 = Plotly.d3
                   , N = 16
@@ -72,37 +137,7 @@
                 stateplot = Plotly.newPlot('pr_plot', data, layout, {
                     responsive: true
                 });
-                var dta = Array(L).fill(NaN).map(x=>Array(L).fill(NaN))
-                var data = [{
-                    z: dta,
-                    type: 'heatmap',
-                    colorscale: [[0, 'rgb(0,0,0)'], [0.5, 'rgb(255,0,0)'], [1, 'rgb(255,200,0)']],
-                    showscale: false,
-                }];
 
-                var axisTemplate = {
-                    showgrid: false,
-                    zeroline: false,
-                    linecolor: 'black',
-                    showticklabels: false,
-                    ticks: ''
-                };
-                Plotly.newPlot('state_plot', data, {
-                    margin: {
-                        l: 0,
-                        r: 0,
-                        b: 10,
-                        t: 0,
-                        pad: 0
-                    },
-                    title: false,
-                    xaxis: axisTemplate,
-                    yaxis: axisTemplate,
-                    showlegend: false,
-                }, {
-                    staticPlot: true,
-                    responsive: true
-                });
 
                 myPlot.on('plotly_click', function(data) {
                     var k = data.points[0].pointIndex
@@ -119,11 +154,11 @@
                         Plotly.relayout('pr_plot',{annotations: [annotation]})
                     for (var i = 0; i < L; i++) {
                         for (var j = 0; j < L; j++) {
-                            if (i <= j) {
-                                dta[i][L - j] = state[ind]
+                            if (i <= j && i< L-j) {
+                                window.dta[i][L - j - 1] = state[ind]
                                 ind++
                             } else {
-                                dta[i][j] = NaN
+                                window.dta[i][j] = NaN
                             }
 
                         }
@@ -136,13 +171,9 @@
 
                 $('#loading_div').remove()
             }
-            function PR(k) {
-                return window.prs[k - 1]
-            }
-            function energy(k) {
-                return window.energies[k - 1]
-            }
+
             init()
+
         </script>
     </body>
 </html>
