@@ -142,10 +142,12 @@
                 }
                 return str
             }
+          
             _idprefix="wikiwarsgamee_"
 
-            myid=random_id()
 
+            myid=random_id()
+    
             me = new Peer(_idprefix+myid,{debug:0});
             meInfo={peer:myid}
             meInfo.name = prompt("Ingresa tu nombre: ");
@@ -158,6 +160,7 @@
             article_chain=[]
             articleTo=null
             loadingRace=false
+
             function on_command(comm, data, conn) {
                 switch (comm) {
                 case "my_other_players":
@@ -230,6 +233,7 @@
                     }
                     $("body").removeClass("on-race")
                     hideOverlay()
+                    $("#wiki_container").html("")
 
 
             }
@@ -418,17 +422,23 @@
 
                 me.connection_wait*=2
             });
+
             function article_from_link(link) {
                 return decodeURI(link.split('/').pop().split('#')[0].split('?')[0]);
             }
             async function main() {
-                $("#pasteIdText").on('keydown', function (e) {
-                    if (e.keyCode === 13) {
-                        connect_to(_idprefix+$(this).val())
-                        $(this).val("")
-                        return false;
-                    }
-                });
+                        var otherid=new URLSearchParams(window.location.search).get("id")
+                        if(otherid) connect_to(_idprefix+ otherid);
+                        window.history.replaceState(null, '', '?id='+myid);
+                
+                cf= function (e) {
+                   
+            connect_to(_idprefix+ $("#pasteIdText").val())
+             $("#pasteIdText").val("")
+            return false;
+                }
+                $("#pasteIdText").on('keydown',function(e){if (e.keyCode === 13) {cf(e)}});
+                $("#addIdButton").on('click',cf);
                 function set_article_textinput(el,v){
                        el.val(v)
                        el.data("valid-suggestion",v)
@@ -718,11 +728,11 @@
                   </tr>
                   <tr>
                              <td>Mi id </td> 
-                             <td><input type="text" disabled id="myIdText"> </td>
+                             <td><input type="text" disabled id="myIdText"></td>
                    </tr>
                   <tr>
                          <td>Unirse a</td>
-                         <td> <input type="text" id="pasteIdText" placeholder="pega id"></td>
+                         <td> <input type="text" id="pasteIdText" placeholder="pega id"><button  id="addIdButton">Unirse</button></td>
                 </tr>
    
                   <tr>
