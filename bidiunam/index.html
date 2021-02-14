@@ -44,7 +44,7 @@ if(v!==undefined){
 
 function submit(v){
 if(v===undefined){v=input.value}
- 
+ if(v.startsWith('/')){v=v.substring(1)}
   if(validURL(v)){
     var url = new URL(v);
     newhost=url.hostname.replaceAll(".","-")+".pbidi.unam.mx:2443"
