@@ -42,7 +42,7 @@ if(v!==undefined){
    submit(v)
 }
 
-function submit(v){
+function submit(v,addurltodoi){
 if(v===undefined){v=input.value}
  if(v.startsWith('/')){v=v.substring(1)}
   if(validURL(v)){
@@ -51,8 +51,11 @@ if(v===undefined){v=input.value}
     newurl="https://"+newhost+url.pathname+url.search
     window.location.href =newurl
   }
+  else if(addurltodoi===undefined || addurltodoi==true){
+    submit("https://doi.org/"+v,false)
+  }
   else{
-    submit("https://doi.org/"+v)
+  	//invalid
   }
 }
 </script>
