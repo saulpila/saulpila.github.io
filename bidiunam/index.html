@@ -1,12 +1,54 @@
 <!DOCTYPE html>
 <html>
+<head>
+<style>
+.lds-ring {
+  display: inline-block;
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+.lds-ring div {
+  box-sizing: border-box;
+  display: block;
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  margin: 8px;
+  border: 8px solid #fff;
+  border-radius: 50%;
+  animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  border-color: #000 transparent transparent transparent;
+}
+.lds-ring div:nth-child(1) {
+  animation-delay: -0.45s;
+}
+.lds-ring div:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.lds-ring div:nth-child(3) {
+  animation-delay: -0.15s;
+}
+@keyframes lds-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+</style>
+</head>
 <body style="width: 100%;">
-<div style="width: 80%; margin: auto;margin-top: calc(50vh - 15px);">
+<div id="inputdiv" style="width: 80%; margin: auto;margin-top: calc(50vh - 15px);">
 
 <input type="text" id="textinput" placeholder="URL o DOI" style="width: calc(100% - 55px);font-size:18pt">
 <button id="myBtn" onclick="submit()" style="width: 40px;font-size:18pt">Ir</button>
 
 </div>
+<div id="loader" style="position:fixed;    left: calc(50% - 40px);    top: calc(50% - 40px);   display: none"><div class="lds-ring"><div></div><div></div><div></div><div></div></div></div>
+
 <script>
 var input = document.getElementById("textinput");
 function validURL(str) {
@@ -50,6 +92,8 @@ if(v===undefined){v=input.value}
     newhost=url.hostname.replaceAll(".","-")+".pbidi.unam.mx:2443"
     newurl="https://"+newhost+url.pathname+url.search
     window.location.href =newurl
+     document.getElementById("inputdiv").style.display = "none";
+      document.getElementById("loader").style.display = "block";
   }
   else if(addurltodoi===undefined || addurltodoi==true){
     submit("https://doi.org/"+v,false)
