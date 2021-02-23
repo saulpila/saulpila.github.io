@@ -79,8 +79,8 @@ var getParams = function (url) {
 	return params;
 };
 prms=getParams(window.location.href);
-v=prms.u;
-if(v!==undefined){
+v=prms.u || window.location.hash.substring(1);
+if(v){
    submit(v)
 }
 
