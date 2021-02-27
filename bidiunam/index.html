@@ -78,8 +78,8 @@ var getParams = function (url) {
 	}
 	return params;
 };
-prms=getParams(window.location.href);
-v=prms.u || window.location.hash.substring(1);
+//prms=getParams(window.location.href);
+v=window.location.hash.substring(1) //|| prms.u ;
 if(v){
    submit(v)
 }
