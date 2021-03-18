@@ -1,7 +1,6 @@
 <html>
     <head>
         <meta charset="UTF-8">
-
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
         <script src="https://unpkg.com/peerjs@latest/dist/peerjs.min.js"></script>
         <script src="jquery-autocomplete.js"></script>
@@ -131,6 +130,19 @@
             transform: scale(1.1) rotate(480deg);
             transition: transform ease 0ms;
             }
+            .edit-name-button {
+                background-image: url(data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9JzMwMHB4JyB3aWR0aD0nMzAwcHgnICBmaWxsPSIjQTJBMkEyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGRhdGEtbmFtZT0iTGF5ZXIgMSIgdmlld0JveD0iMCAwIDUxMiA1MTIiIHg9IjBweCIgeT0iMHB4Ij48dGl0bGU+RWRpdDwvdGl0bGU+PHBhdGggZD0iTTMxOC4zNyw4NS40NUw0MjIuNTMsMTkwLjExLDE1OC44OSw0NTUsNTQuNzksMzUwLjM4Wk01MDEuNTYsNjAuMkw0NTUuMTEsMTMuNTNhNDUuOTMsNDUuOTMsMCwwLDAtNjUuMTEsMEwzNDUuNTEsNTguMjQsNDQ5LjY2LDE2Mi45bDUxLjktNTIuMTVBMzUuOCwzNS44LDAsMCwwLDUwMS41Niw2MC4yWk0wLjI5LDQ5Ny40OWExMS44OCwxMS44OCwwLDAsMCwxNC4zNCwxNC4xN2wxMTYuMDYtMjguMjhMMjYuNTksMzc4LjcyWiI+PC9wYXRoPjwvc3ZnPg==);
+                background-size: 100%;
+                height: 15px;
+                width: 15px;
+                display: inline-block;
+                margin-left: 10px;
+                margin-right: -25px;
+                cursor: pointer;
+                margin-top: 3px;
+                margin-bottom: -3px;
+                
+            }
         </style>
     </head>
     <body class="mw-content-ltr sitedir-ltr ltr mw-body-content parsoid-body mediawiki mw-parser-output">
@@ -150,8 +162,7 @@
     
             me = new Peer(_idprefix+myid,{debug:0});
             meInfo={peer:myid}
-            meInfo.name = prompt("Ingresa tu nombre: ");
-                
+            meInfo.name = prompt("Ingresa tu nombre: ") || "Sin nombre";
        //     my_name="Saúl"
          
             peers = new Set([])
@@ -186,9 +197,6 @@
                     setArticle(conn,data)
 
                     updatePlayers()
-                    if(loadingRace){
-                        start_race_if_loaded()
-                    }
                     break;
                 case "stop_race":
                     stoprace(false)
@@ -260,7 +268,7 @@
                         var art=p.current_article
                         
                         var artt;
-                        if(art){artt=art.split("_").join(" ");}
+                        if(art){artt=decodeURIComponent(art.split("_").join(" "));}
                         else{artt=""}
                         var $pl=$("<div class='player'><div class='player-name'>" + p.name + "</div><div class='player-article-title'>"+artt +"</div></div>")
                         if(articleTo!=null && art==articleTo){
@@ -270,6 +278,7 @@
                         if(p==meInfo){
                                 $pl.addClass("me")
                                 if(!me.open){$pl.addClass("loading")}
+                                $pl.find(".player-name").append('<div class="edit-name-button"/>').click(change_name)
                         }
                         $cont.append($pl)
 
@@ -289,9 +298,15 @@
                    $pl.addClass(c)
                   $cont.append( $pl)
                  }
+                 start_race_if_loaded()
+                 
              }
              
-
+             function change_name(){
+                  meInfo.name = prompt("Ingresa tu nombre: ") || "Sin nombre";
+                  broadcast_command("my_name_is", {name:meInfo.name})
+                  updatePlayers()
+             }
              function broadcast_command(comm,data){
                 send_command(comm,data,peers)
 
@@ -325,7 +340,6 @@
                 })
                 connecting_to.add(id)
                 updatePlayers()
-                window.connetingtoconn=conn
                 var f_error=function(e){
                         conn.off("open").off("error").off("data")
                         if(conn.peerConnection){
@@ -375,6 +389,18 @@
                     connecting_to.delete(c.peer)
                     send_command("my_name_is", {name:meInfo.name}, c)
                     send_other_players(c)
+                    function checkAlive(){
+                         if(peers.has(c) && c.open){
+
+                                     if(c.peerConnection.connectionState!="connected"){
+                                          c.close()
+                                     } else{
+                                                window.setTimeout(checkAlive,1000)
+                                     }
+                         }
+                    }
+                    window.setTimeout(checkAlive,1000)
+
                 })
                 c.on('close', function() {
                     if(peers.has(c)){//si noe sta es que dijo adios y todo chido
@@ -504,12 +530,12 @@
                 $("body").addClass("on-race")
                 window.article_chain=[]
                 window.articleTo=to
-                $("#article-target").text(to.split("_").join(" "))
+                $("#article-target").text(decodeURIComponent(to.split("_").join(" ")))
                 await goto_article(from)
                 start_race_if_loaded()
             }
             function start_race_if_loaded(){
-                if(window.article_chain.length){
+                if(loadingRace &&window.article_chain.length){
                    for(let p of peers){
                         if(p.current_article!=window.article_chain[0]){
                                 return false
